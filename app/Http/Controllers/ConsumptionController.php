@@ -18,9 +18,13 @@ class ConsumptionController extends Controller
         {
         return $this->parValidation($request->meterId,"Meter Id");
         }
-        else if(!isset($request->date))
+        else if(!isset($request->tdate))
         {
-        return $this->parValidation($request->date,"Date");
+        return $this->parValidation($request->tdate,"Date");
+        }
+        else if(!isset($request->fdate))
+        {
+        return $this->parValidation($request->fdate,"Date");
         }
         else if(!isset($request->token))
         {
@@ -37,9 +41,10 @@ class ConsumptionController extends Controller
 
         $meterId = $request->meterId;
         $token   = $request->token;
-        $date    = $request->date;
-        $mobile = $request->mobile;
-        $isd    = $request->isd;
+        $tdate   = $request->tdate;
+        $fdate   = $request->fdate;
+        $mobile  = $request->mobile;
+        $isd     = $request->isd;
 
         $auth=DB::table('tbl_app_users_register')
               ->where([['authToken',$token],['isdCode',$isd],['mobileNumber',$mobile]])
@@ -60,7 +65,16 @@ class ConsumptionController extends Controller
 
             foreach ($meterId as $key => $value)
             {
-                $reading=DB::select("SELECT meterId,flowDate, HOUR(flowTime) AS hour , SUM( flowQuantity ) AS totalFlow FROM tbl_data_raw_consumption WHERE flowDate =  '$date' AND flowTime BETWEEN  '00:00:00' AND  '23:59:59' AND meterId =  '$value' GROUP BY hour");
+
+                $dt=$fdate;
+
+                while(strtotime($dt)<=strtotime($tdate))
+                {
+                    $reading=DB::select("SELECT meterId,flowDate, HOUR(flowTime) AS hour , SUM( flowQuantity ) AS totalFlow FROM tbl_data_raw_consum_last2days WHERE flowDate ='$dt' AND flowTime BETWEEN  '00:00:00' AND  '23:59:59' AND meterId =  '$value' GROUP BY hour");
+                    $dt = date ("Y-m-d", strtotime("+1 day", strtotime($dt)));
+                    array_push($payload,$reading);
+                }
+
                 array_push($payload,$reading);
             }
 
