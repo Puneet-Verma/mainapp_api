@@ -6,37 +6,42 @@ use App\Model\appUser;
 use Illuminate\Http\Request;
 use DB;
 use Exception;
-
+use App\Helper\CommonFunction;
 
 class ConsumptionController extends Controller
 {
 
     public function getHourlyReading(Request $request)
     {
+        $cf = new CommonFunction();
 
         if(!isset($request->meterId))
         {
-        return $this->parValidation($request->meterId,"Meter Id");
+        return $cf->parValidation($request->meterId,"Meter Id");
         }
         else if(!isset($request->tdate))
         {
-        return $this->parValidation($request->tdate,"Date");
+        return $cf->parValidation($request->tdate,"Date");
         }
         else if(!isset($request->fdate))
         {
-        return $this->parValidation($request->fdate,"Date");
+        return $cf->parValidation($request->fdate,"Date");
         }
         else if(!isset($request->token))
         {
-        return $this->parValidation($request->token,"token");
+        return $cf->parValidation($request->token,"token");
         }
         else if(!isset($request->mobile))
         {
-        return $this->parValidation($request->mobile,"Mobile number");
+        return $cf->parValidation($request->mobile,"Mobile number");
         }
         else if(!isset($request->isd))
         {
-        return $this->parValidation($request->isd,"ISD code");
+        return $cf->parValidation($request->isd,"ISD code");
+        }
+        else if(!isset($request->fcmToken))
+        {
+        return $cf->parValidation($request->fcmToken,"FCM token required");
         }
 
         $meterId = $request->meterId;
@@ -45,96 +50,84 @@ class ConsumptionController extends Controller
         $fdate   = $request->fdate;
         $mobile  = $request->mobile;
         $isd     = $request->isd;
+        $fcmToken = $request->fcmToken;
 
-        $auth=DB::table('tbl_app_users_register')
-              ->where([['authToken',$token],['isdCode',$isd],['mobileNumber',$mobile]])
-              ->first();
-
-        if(!$auth)
+        $tokenCheck = $cf->tokenCheck($token,$isd,$mobile);
+        if($tokenCheck)
         {
-            $result['status']="failed";
-            $result["message"] = "Authorization fail";
-            $statusCode=401;
-            return response()->json([$result],$statusCode);
-
+        return $tokenCheck;
         }
-        else
+
+        // checking fcm token for force login
+        $fcmCheck=$cf->fcmCheck($isd,$mobile,$fcmToken);
+        if($fcmCheck)
         {
-            //$b=str_replace(","," or meterId=",$meterId);
-            //$c="meterId =".$b;
+        return $fcmCheck;
+        }
 
+        $meterId=explode(",",$meterId);
+        $payload=array();
 
-            $meterId=explode(",",$meterId);
-
-
-
-            $payload=array();
-
-           foreach ($meterId as $key => $value)
+       foreach ($meterId as $key => $value)
+        {
+            $dt=$fdate;
+            while(strtotime($dt)<=strtotime($tdate))
             {
-                $dt=$fdate;
-                while(strtotime($dt)<=strtotime($tdate))
+                $reading=DB::select("SELECT meterId,flowDate, HOUR(flowTime) AS hour , SUM(flowQuantity) AS totalFlow FROM tbl_data_raw_consum_last2days WHERE flowDate ='$dt' AND flowTime BETWEEN  '00:00:00' AND  '23:59:59' AND meterId =  '$value' GROUP BY hour");
+                //$reading=DB::select("SELECT meterId,flowDate, HOUR(flowTime) AS hour , SUM(flowQuantity) AS totalFlow FROM tbl_data_raw_consum_last2days WHERE flowDate ='$dt' AND flowTime BETWEEN  '00:00:00' AND  '23:59:59' AND ($c) GROUP BY hour");
+
+
+                $dt = date ("Y-m-d", strtotime("+1 day", strtotime($dt)));
+                if($reading)
                 {
-                    $reading=DB::select("SELECT meterId,flowDate, HOUR(flowTime) AS hour , SUM(flowQuantity) AS totalFlow FROM tbl_data_raw_consum_last2days WHERE flowDate ='$dt' AND flowTime BETWEEN  '00:00:00' AND  '23:59:59' AND meterId =  '$value' GROUP BY hour");
-                    //$reading=DB::select("SELECT meterId,flowDate, HOUR(flowTime) AS hour , SUM(flowQuantity) AS totalFlow FROM tbl_data_raw_consum_last2days WHERE flowDate ='$dt' AND flowTime BETWEEN  '00:00:00' AND  '23:59:59' AND ($c) GROUP BY hour");
-
-
-                    $dt = date ("Y-m-d", strtotime("+1 day", strtotime($dt)));
-                    if($reading)
-                    {
-                        array_push($payload,$reading);
-                    }
+                    array_push($payload,$reading);
                 }
-
             }
 
-            $result['payload']=$payload;
-            $result['status']="success";
-            $result["message"] = "Success";
-
-/*     array_push(
-         "payload" => $payload,
-         "status'  => "success",
-         "message" => "Success"
-
-
-     );
-
-     $a=array("a"=>"red","b"=>"green");
-*/
-
-
-            $statusCode=200;
-            return response()->json($result,$statusCode);
         }
+
+        $result['payload']=$payload;
+        $result['status']="success";
+        $result["message"] = "Success";
+
+        $statusCode=200;
+        return response()->json($result,$statusCode);
+
     }
 
     public function getMonthlyReading(Request $request)
     {
 
+        $cf = new CommonFunction();
+
         if(!isset($request->aptnum))
         {
-        return $this->parValidation($request->aptnum,"Apartment number");
+        return $cf->parValidation($request->aptnum,"Apartment number");
         }
         else if(!isset($request->noofdays))
         {
-        return $this->parValidation($request->noofdays,"Number of days");
+        return $cf->parValidation($request->noofdays,"Number of days");
         }
         else if(!isset($request->token))
         {
-        return $this->parValidation($request->token,"token");
+        return $cf->parValidation($request->token,"token");
         }
         else if(!isset($request->tilldate))
         {
-        return $this->parValidation($request->tilldate,"Till Date ");
+        return $cf->parValidation($request->tilldate,"Till Date ");
         }
         else if(!isset($request->mobile))
         {
-        return $this->parValidation($request->mobile,"Mobile number");
+        return $cf->parValidation($request->mobile,"Mobile number");
         }
         else if(!isset($request->isd))
         {
-        return $this->parValidation($request->isd,"ISD Code");
+        return $cf->parValidation($request->isd,"ISD Code");
+        }
+
+        else if(!isset($request->fcmToken))
+        {
+        return $cf->parValidation($request->fcmToken,"FCM token required");
         }
 
         $apt_num    = $request->aptnum;
@@ -143,138 +136,125 @@ class ConsumptionController extends Controller
         $mobile     = $request->mobile;
         $isd        = $request->isd;
         $no_of_days = intval($request->noofdays);
+        $fcmToken = $request->fcmToken;
 
-
-        $auth=DB::table('tbl_app_users_register')
-              ->where([['authToken',$token],['isdCode',$isd],['mobileNumber',$mobile]])
-              ->first();
-
-        if(!$auth)
+        $tokenCheck = $cf->tokenCheck($token,$isd,$mobile);
+        if($tokenCheck)
         {
-            $result['status']="failed";
-            $result["message"] = "Authorization fail";
-            $statusCode=401;
-            return response()->json([$result],$statusCode);
-
+        return $tokenCheck;
         }
-        else
+
+        $fcmCheck=$cf->fcmCheck($isd,$mobile,$fcmToken);
+        if($fcmCheck)
         {
-            /* Find out from which date data is required */
-            $from_date  = $this->start_date($no_of_days,$tilldate);
+        return $fcmCheck;
+        }
 
-            try
-            {
-                /* Get All metering information */
-                $meterinfo         = DB::table('tbl_metering_point as mp')
-                                    ->select('mp.meteringPointId','mp.locationUser')
-                                    ->where('mp.aptId',$apt_num)
-                                    ->orderBy('mp.meteringPointId','asc')
+        $from_date  = $this->start_date($no_of_days,$tilldate);
+
+        try
+        {
+            /* Get All metering information */
+            $meterinfo         = DB::table('tbl_metering_point as mp')
+                                ->select('mp.meteringPointId','mp.locationUser')
+                                ->where('mp.aptId',$apt_num)
+                                ->orderBy('mp.meteringPointId','asc')
+                                ->get();
+            /* Get total consumption of all the metering point */
+            $total_consumption = DB::table('tbl_consum_apartment_daily as adc')
+                                ->select('adc.consum','adc.flow_date')
+                                ->where('adc.apt_id',$apt_num)
+                                ->whereBetween("adc.flow_date",[$from_date,$tilldate]);
+
+            /* Get total consumption of individual metering point and union with total consumption */
+            $all_meter_consumption = DB::table('tbl_consum_meter_daily as mdc')
+                                    ->where('mdc.apt_id',$apt_num)
+                                    ->joinSub($total_consumption, 'total', function ($join) {
+                                        $join->on('mdc.flow_date', '=', 'total.flow_date');})
+                                    ->orderBy('total.flow_date','desc')
+                                    ->orderBy('mdc.mtr_point_id','asc')
+                                    ->select('mdc.flow_date as flowDate','total.consum as daily_consume','mdc.mtr_point_id as meteringPointId','mdc.consum as meter_consume')
                                     ->get();
-                /* Get total consumption of all the metering point */
-                $total_consumption = DB::table('tbl_consum_apartment_daily as adc')
-                                    ->select('adc.consum','adc.flow_date')
-                                    ->where('adc.apt_id',$apt_num)
-                                    ->whereBetween("adc.flow_date",[$from_date,$tilldate]);
+        }
+        catch (Exception $e)
+        {
+            $error = $this->error_db_message('Error occurs while getting consumption detail',$e->getMessage(),$e->getCode());
+            return response()->json(['success' => false,'status_code' => 500,'error' =>$error, 'message' => 'Database error'], 500);
+        }
 
-                /* Get total consumption of individual metering point and union with total consumption */
-                $all_meter_consumption = DB::table('tbl_consum_meter_daily as mdc')
-                                        ->where('mdc.apt_id',$apt_num)
-                                        ->joinSub($total_consumption, 'total', function ($join) {
-                                            $join->on('mdc.flow_date', '=', 'total.flow_date');})
-                                        ->orderBy('total.flow_date','desc')
-                                        ->orderBy('mdc.mtr_point_id','asc')
-                                        ->select('mdc.flow_date as flowDate','total.consum as daily_consume','mdc.mtr_point_id as meteringPointId','mdc.consum as meter_consume')
-                                        ->get();
-            }
-            catch (Exception $e)
+        $response = array();
+        $jsonarr  = array();
+        $count    = -1;
+        $key      = 0;
+
+        while (strtotime($tilldate) >= strtotime($from_date))
+        {
+            if(!isset($jsonarr[$count]['date']) || $jsonarr[$count]['date'] != $tilldate)
             {
-                $error = $this->error_db_message('Error occurs while getting consumption detail',$e->getMessage(),$e->getCode());
-                return response()->json(['success' => false,'status_code' => 500,'error' =>$error, 'message' => 'Database error'], 500);
-            }
 
-            $response = array();
-            $jsonarr  = array();
-            $count    = -1;
-            $key      = 0;
+                //Put first element of json arr as flowdate
+                $count++;
+                $jsonarr[$count]['date'] = $tilldate;
 
-            while (strtotime($tilldate) >= strtotime($from_date))
-            {
-                if(!isset($jsonarr[$count]['date']) || $jsonarr[$count]['date'] != $tilldate)
+                $obj = new \stdClass();
+                $obj->meteringPointId = 0;
+                $obj->flowDate = '1970-01-01';
+                //take first value of consumption (from query --> desc dates)
+                $consum = isset($all_meter_consumption[$key]) ? $all_meter_consumption[$key] : $obj;
+
+                //if date match --> fill the data from query row
+                if($consum->flowDate == $tilldate)
                 {
+                    $jsonarr[$count]['total_consume'] = $consum->daily_consume;
+                    $jsonarr[$count]['meter_consume'] = array();
 
-                    //Put first element of json arr as flowdate
-                    $count++;
-                    $jsonarr[$count]['date'] = $tilldate;
-
-                    $obj = new \stdClass();
-                    $obj->meteringPointId = 0;
-                    $obj->flowDate = '1970-01-01';
-                    //take first value of consumption (from query --> desc dates)
-                    $consum = isset($all_meter_consumption[$key]) ? $all_meter_consumption[$key] : $obj;
-
-                    //if date match --> fill the data from query row
-                    if($consum->flowDate == $tilldate)
+                    foreach($meterinfo as $m => $mtr)
                     {
-                        $jsonarr[$count]['total_consume'] = $consum->daily_consume;
-                        $jsonarr[$count]['meter_consume'] = array();
-
-                        foreach($meterinfo as $m => $mtr)
+                        $latestrow =  isset($all_meter_consumption[$key]) ? $all_meter_consumption[$key] : $obj;
+                        if($latestrow->meteringPointId == $mtr->meteringPointId && $latestrow->flowDate == $tilldate)
                         {
-                            $latestrow =  isset($all_meter_consumption[$key]) ? $all_meter_consumption[$key] : $obj;
-                            if($latestrow->meteringPointId == $mtr->meteringPointId && $latestrow->flowDate == $tilldate)
-                            {
-                                $individual_consume = array(
-                                'consume'        => $latestrow->meter_consume,
-                                'locationUser'    => $mtr->locationUser,
-                                'meteringPointId' => $mtr->meteringPointId
-                                );
-                                array_push($jsonarr[$count]['meter_consume'],$individual_consume);
-                                $key++;
-                            }
-                            else
-                            {
-                                $individual_consume = array(
-                                    //'meterId'         => $consum->meterId,
-                                    'consume'        => 0,
-                                    'locationUser'    => $mtr->locationUser,
-                                    'meteringPointId' => $mtr->meteringPointId
-                                );
-                                array_push($jsonarr[$count]['meter_consume'],$individual_consume);
-                            }
-                        }
-                    }
-                    else
-                    {
-                        //Make both total_consume & meter_consume zero with meteringPointId & location user
-                        $jsonarr[$count]['total_consume'] = 0;
-                        $jsonarr[$count]['meter_consume'] = array();
-                        foreach($meterinfo as $m => $mtr){
                             $individual_consume = array(
-                                'consume'         => 0,
+                            'consume'        => $latestrow->meter_consume,
+                            'locationUser'    => $mtr->locationUser,
+                            'meteringPointId' => $mtr->meteringPointId
+                            );
+                            array_push($jsonarr[$count]['meter_consume'],$individual_consume);
+                            $key++;
+                        }
+                        else
+                        {
+                            $individual_consume = array(
+                                //'meterId'         => $consum->meterId,
+                                'consume'        => 0,
                                 'locationUser'    => $mtr->locationUser,
                                 'meteringPointId' => $mtr->meteringPointId
                             );
                             array_push($jsonarr[$count]['meter_consume'],$individual_consume);
                         }
                     }
-                    $tilldate = date ("Y-m-d", strtotime("-1 day", strtotime($tilldate)));
                 }
+                else
+                {
+                    //Make both total_consume & meter_consume zero with meteringPointId & location user
+                    $jsonarr[$count]['total_consume'] = 0;
+                    $jsonarr[$count]['meter_consume'] = array();
+                    foreach($meterinfo as $m => $mtr){
+                        $individual_consume = array(
+                            'consume'         => 0,
+                            'locationUser'    => $mtr->locationUser,
+                            'meteringPointId' => $mtr->meteringPointId
+                        );
+                        array_push($jsonarr[$count]['meter_consume'],$individual_consume);
+                    }
+                }
+                $tilldate = date ("Y-m-d", strtotime("-1 day", strtotime($tilldate)));
             }
-
-            $response['status']  = 'success';
-            $response['data']['daily'] = $jsonarr;
-
-            return response()->json(['success' => true,'payload'=>$response], 200);
         }
-    }
 
+        $response['status']  = 'success';
+        $response['data']['daily'] = $jsonarr;
 
-    function parValidation($par,$mess)
-    {
-        $result['status']="failed";
-        $result["message"] ="Data missing: ".$mess." code is required";
-        $statusCode=400;
-        return response()->json([$result],$statusCode);
+        return response()->json(['success' => true,'payload'=>$response], 200);
 
     }
 

@@ -5,13 +5,13 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use DB;
 use App\Model\AppUser;
-//use App\Model\Apartment;
-//use App\Model\Society;
+use App\Helper\CommonFunction;
 
 class ProfileController extends Controller{
 
     public function getProfile(Request $request)
     {
+        $cf = new CommonFunction();
         if(!isset($request->mobile))
         {
             $result['status']="failed";
@@ -19,6 +19,16 @@ class ProfileController extends Controller{
             $statusCode=400;
             return response()->json([$result],$statusCode);
         }
+        else if(!isset($request->token))
+        {
+        return $cf->parValidation($request->token,"token is required");
+        }
+        else if(!isset($request->fcmToken))
+        {
+        return $cf->parValidation($request->fcmToken,"FCM token isrequired");
+        }
+
+
         /*elseif(!isset($request->token))
         {
             $result['status']="failed";
@@ -38,6 +48,25 @@ class ProfileController extends Controller{
         $mobile    = $request->mobile;
         //$token     = $request->token;
         $isdCode = $request->isdCode;
+        $fcmToken = $request->fcmToken;
+        $token = $request->token;
+
+
+        // checking fcm token for force login
+        $fcmCheck=$cf->fcmCheck($isdCode,$mobile,$fcmToken);
+        if($fcmCheck)
+        {
+        return $fcmCheck;
+        }
+
+
+        $tokenCheck = $cf->tokenCheck($token,$isdCode,$mobile);
+        if($tokenCheck)
+        {
+        return $tokenCheck;
+        }
+
+
 
         $user=AppUser::where([['mobileNumber','=',$mobile],['isdCode','=',$isdCode]])->get();
 
@@ -172,4 +201,3 @@ class ProfileController extends Controller{
 
 
 }
-
