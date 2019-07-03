@@ -60,29 +60,52 @@ class ConsumptionController extends Controller
         }
         else
         {
+            //$b=str_replace(","," or meterId=",$meterId);
+            //$c="meterId =".$b;
+
+
             $meterId=explode(",",$meterId);
+
+
+
             $payload=array();
 
-            foreach ($meterId as $key => $value)
+           foreach ($meterId as $key => $value)
             {
-
                 $dt=$fdate;
-
                 while(strtotime($dt)<=strtotime($tdate))
                 {
-                    $reading=DB::select("SELECT meterId,flowDate, HOUR(flowTime) AS hour , SUM( flowQuantity ) AS totalFlow FROM tbl_data_raw_consum_last2days WHERE flowDate ='$dt' AND flowTime BETWEEN  '00:00:00' AND  '23:59:59' AND meterId =  '$value' GROUP BY hour");
+                    $reading=DB::select("SELECT meterId,flowDate, HOUR(flowTime) AS hour , SUM(flowQuantity) AS totalFlow FROM tbl_data_raw_consum_last2days WHERE flowDate ='$dt' AND flowTime BETWEEN  '00:00:00' AND  '23:59:59' AND meterId =  '$value' GROUP BY hour");
+                    //$reading=DB::select("SELECT meterId,flowDate, HOUR(flowTime) AS hour , SUM(flowQuantity) AS totalFlow FROM tbl_data_raw_consum_last2days WHERE flowDate ='$dt' AND flowTime BETWEEN  '00:00:00' AND  '23:59:59' AND ($c) GROUP BY hour");
+
+
                     $dt = date ("Y-m-d", strtotime("+1 day", strtotime($dt)));
-                    array_push($payload,$reading);
+                    if($reading)
+                    {
+                        array_push($payload,$reading);
+                    }
                 }
 
-                array_push($payload,$reading);
             }
 
             $result['payload']=$payload;
             $result['status']="success";
             $result["message"] = "Success";
+
+/*     array_push(
+         "payload" => $payload,
+         "status'  => "success",
+         "message" => "Success"
+
+
+     );
+
+     $a=array("a"=>"red","b"=>"green");
+*/
+
+
             $statusCode=200;
-            return response()->json([$result],$statusCode);
+            return response()->json($result,$statusCode);
         }
     }
 
