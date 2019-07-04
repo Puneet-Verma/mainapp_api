@@ -23,20 +23,13 @@ class ProfileController extends Controller{
         {
         return $cf->parValidation($request->token,"token is required");
         }
+        /*
         else if(!isset($request->fcmToken))
         {
         return $cf->parValidation($request->fcmToken,"FCM token isrequired");
         }
-
-
-        /*elseif(!isset($request->token))
-        {
-            $result['status']="failed";
-            $result["message"] = "Data missing: Token is required";
-            $statusCode=400;
-            return response()->json([$result],$statusCode);
-        }
         */
+        
         if(!isset($request->isdCode))
         {
             $result['status']="failed";
@@ -48,17 +41,18 @@ class ProfileController extends Controller{
         $mobile    = $request->mobile;
         //$token     = $request->token;
         $isdCode = $request->isdCode;
-        $fcmToken = $request->fcmToken;
+        //$fcmToken = $request->fcmToken;
         $token = $request->token;
 
 
         // checking fcm token for force login
+        /*
         $fcmCheck=$cf->fcmCheck($isdCode,$mobile,$fcmToken);
         if($fcmCheck)
         {
         return $fcmCheck;
         }
-
+        */
 
         $tokenCheck = $cf->tokenCheck($token,$isdCode,$mobile);
         if($tokenCheck)
