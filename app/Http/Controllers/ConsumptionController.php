@@ -251,8 +251,7 @@ class ConsumptionController extends Controller
             }
         }
 
-        $response['status']  = 'success';
-        $response['data']['daily'] = $jsonarr;
+        $response = $jsonarr;
 
         return response()->json(['success' => true,'payload'=>$response], 200);
 
