@@ -22,6 +22,9 @@ Route::post('api/v1.0/verifyOtp', 'OtpController@verifyOtp');
 Route::post('api/v1.0/logout', 'OtpController@logout');
 Route::post('api/v1.1/getreading/hourly',"ConsumptionController@getHourlyReading");
 Route::post('api/v1.1/getreading/monthly',"ConsumptionController@getMonthlyReading");
+Route::post('api/v1.1/getreading/daily',"ConsumptionController@getDailyReading");
+
+
 
 
 //Route::post('verifyOtp', 'AuthController@verifyOtp');    // otp +(91)981139142

@@ -26,6 +26,7 @@ class VerifyCsrfToken extends Middleware
 'http://mainappapi.wateron.in/api/v1.0/logout',
 'http://mainappapi.wateron.in/api/v1.1/getreading/hourly',
 'http://mainappapi.wateron.in/api/v1.1/getreading/monthly',
+'http://mainappapi.wateron.in/api/v1.1/getreading/daily',
 
 'http://127.0.0.1:8000/api/v1.0/register',
     ];

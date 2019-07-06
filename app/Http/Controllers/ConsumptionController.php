@@ -68,7 +68,7 @@ class ConsumptionController extends Controller
         $meterId=explode(",",$meterId);
         $payload=array();
 
-       foreach ($meterId as $key => $value)
+        foreach ($meterId as $key => $value)
         {
             $dt=$fdate;
             while(strtotime($dt)<=strtotime($tdate))
@@ -95,6 +95,78 @@ class ConsumptionController extends Controller
 
     }
 
+
+    // new way to get 92 date data
+    public function getDailyReading(Request $request)
+    {
+        $cf = new CommonFunction();
+
+        if(!isset($request->meterId))
+        {
+        return $cf->parValidation($request->meterId,"Meter Id");
+        }
+        else if(!isset($request->tdate))
+        {
+        return $cf->parValidation($request->tdate,"Date");
+        }
+        else if(!isset($request->fdate))
+        {
+        return $cf->parValidation($request->fdate,"Date");
+        }
+        else if(!isset($request->token))
+        {
+        return $cf->parValidation($request->token,"token");
+        }
+        else if(!isset($request->mobile))
+        {
+        return $cf->parValidation($request->mobile,"Mobile number");
+        }
+        else if(!isset($request->isd))
+        {
+        return $cf->parValidation($request->isd,"ISD code");
+        }
+        else if(!isset($request->fcmToken))
+        {
+        return $cf->parValidation($request->fcmToken,"FCM token required");
+        }
+
+        $meterId = $request->meterId;
+        $token   = $request->token;
+        $tdate   = $request->tdate;
+        $fdate   = $request->fdate;
+        $mobile  = $request->mobile;
+        $isd     = $request->isd;
+        $fcmToken = $request->fcmToken;
+
+        $tokenCheck = $cf->tokenCheck($token,$isd,$mobile);
+        if($tokenCheck)
+        {
+        return $tokenCheck;
+        }
+
+        // checking fcm token for force login
+        $fcmCheck=$cf->fcmCheck($isd,$mobile,$fcmToken);
+        if($fcmCheck)
+        {
+        return $fcmCheck;
+        }
+
+        $consumption = DB::select("SELECT meter_id as meterId,flow_date, consum as value FROM tbl_consum_meter_daily WHERE flow_date BETWEEN '$fdate' AND '$tdate' AND meter_id IN ($meterId)");
+        $alerts      = DB::select("SELECT FlowQuantity,altDate,altTime, MID as meterId FROM  tbl_alert_history WHERE  MID IN ($meterId) AND altDate BETWEEN '$fdate' AND '$tdate' union SELECT FlowQuantity,altDate,altTime, MID as meterId FROM  tbl_alert_current WHERE  MID IN ($meterId) AND altDate BETWEEN '$fdate' AND '$tdate'");
+    //    $alerts      = DB::select("");
+
+        $result['consumption'] = $consumption;
+        $result['alerts']      = $alerts;
+        $result['status']      = "success";
+        $result["message"]     = "Success";
+
+        $statusCode=200;
+        return response()->json($result,$statusCode);
+
+    }
+
+
+     // old way to get monthly data
     public function getMonthlyReading(Request $request)
     {
 
